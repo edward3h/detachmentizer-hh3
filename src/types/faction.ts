@@ -104,7 +104,7 @@ export const FACTIONS: readonly FactionDefinition[] = [
     name: 'Daemons of the Ruinstorm',
     fixedAllegiance: 'traitor',
     canBeDetachmentFaction: true,
-    canBePrimaryFaction: false,
+    canBePrimaryFaction: true,
   },
   {
     id: 'cults-abominatio',
@@ -118,7 +118,7 @@ export const FACTIONS: readonly FactionDefinition[] = [
     name: 'Knights-Errant',
     fixedAllegiance: 'loyalist',
     canBeDetachmentFaction: true,
-    canBePrimaryFaction: false,
+    canBePrimaryFaction: true,
   },
   {
     id: 'legio-custodes',
@@ -132,7 +132,7 @@ export const FACTIONS: readonly FactionDefinition[] = [
     name: 'Anathema Psykana',
     fixedAllegiance: 'loyalist',
     canBeDetachmentFaction: true,
-    canBePrimaryFaction: false,
+    canBePrimaryFaction: true,
   },
   {
     id: 'divisio-assassinorum',
