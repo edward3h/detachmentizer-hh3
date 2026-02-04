@@ -2,17 +2,44 @@ import type { AllocatedDetachment, AllocationResult, ArmyState, Unit } from '../
 import { getBattlefieldRoleName, getFaction, getSubFaction } from '../types';
 
 function renderSlots(detachment: AllocatedDetachment, units: Unit[]): string {
+  // Check if Logistical Benefit was used - find the slot that added another
+  const logisticalBenefitSlot = detachment.slots.find(
+    (s) => s.usedPrimeRule === 'logistical-benefit'
+  );
+
   const slotItems = detachment.slots
-    .map((slot) => {
+    .map((slot, index) => {
       const unit = slot.unitId ? units.find((u) => u.id === slot.unitId) : null;
-      const primeIndicator = slot.isPrime ? '<span class="slot-prime">★</span>' : '';
+
+      // Show prime indicator and Logistical Benefit usage
+      let primeIndicator = '';
+      if (slot.isPrime) {
+        if (slot.usedPrimeRule === 'logistical-benefit') {
+          primeIndicator =
+            '<span class="slot-prime" title="Prime - Logistical Benefit">★ LB</span>';
+        } else {
+          primeIndicator = '<span class="slot-prime" title="Prime">★</span>';
+        }
+      }
+
+      // Check if this slot was added via Logistical Benefit
+      // (It's a slot added after the original definition, matching a unit that was unallocated)
+      const isLogisticalBenefitSlot =
+        logisticalBenefitSlot &&
+        !slot.isPrime &&
+        index === detachment.slots.length - 1 &&
+        slot.unitId;
+      const lbIndicator = isLogisticalBenefitSlot
+        ? '<span class="slot-lb" title="Added via Logistical Benefit">(LB)</span>'
+        : '';
+
       const unitDisplay = unit
         ? `<span class="slot-unit">${unit.name}</span>`
         : '<span class="slot-empty">Empty</span>';
 
       return `
         <li class="slot-item">
-          <span class="slot-role">${getBattlefieldRoleName(slot.definition.role)}${primeIndicator}</span>
+          <span class="slot-role">${getBattlefieldRoleName(slot.definition.role)}${primeIndicator}${lbIndicator}</span>
           ${unitDisplay}
         </li>
       `;

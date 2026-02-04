@@ -1,12 +1,13 @@
 import type {
   AllocatedDetachment,
+  AllocatedSlot,
   AllocationResult,
   ArmyState,
   BattlefieldRole,
   DetachmentDefinition,
   Unit,
 } from '../types';
-import { createAllocatedDetachment, createAllocationResult } from '../types';
+import { createAllocatedDetachment, createAllocationResult, createSlotDefinition } from '../types';
 import {
   CORE_DETACHMENTS,
   getApexDetachmentsForFaction,
@@ -159,6 +160,126 @@ function allocateUnitsToDetachment(detachment: AllocatedDetachment, units: Unit[
   return remaining;
 }
 
+// Roles that cannot be added via Logistical Benefit
+const LOGISTICAL_BENEFIT_EXCLUDED_ROLES: BattlefieldRole[] = [
+  'high-command',
+  'command',
+  'warlord',
+  'lord-of-war',
+];
+
+/**
+ * Check if any unallocated unit could benefit from Logistical Benefit in a detachment.
+ */
+function canBenefitFromLogisticalBenefit(
+  unallocatedUnits: Unit[],
+  detachment: AllocatedDetachment
+): boolean {
+  return unallocatedUnits.some((unit) => {
+    if (LOGISTICAL_BENEFIT_EXCLUDED_ROLES.includes(unit.role)) return false;
+    if (unit.faction !== detachment.faction) return false;
+    if (detachment.subFaction && unit.subFaction && unit.subFaction !== detachment.subFaction) {
+      return false;
+    }
+    return true;
+  });
+}
+
+/**
+ * Move units from non-Prime slots to empty Prime slots when it would enable
+ * Logistical Benefit to allocate additional units.
+ */
+function enableLogisticalBenefitByMovingUnits(context: AllocationContext): void {
+  if (context.unitsToAllocate.length === 0) return;
+
+  for (const detachment of context.allocatedDetachments) {
+    // Skip if already used Logistical Benefit
+    const alreadyUsedLogisticalBenefit = detachment.slots.some(
+      (s) => s.usedPrimeRule === 'logistical-benefit'
+    );
+    if (alreadyUsedLogisticalBenefit) continue;
+
+    // Check if any unallocated unit could benefit from Logistical Benefit here
+    if (!canBenefitFromLogisticalBenefit(context.unitsToAllocate, detachment)) continue;
+
+    // Find an empty Prime slot
+    const emptyPrimeSlot = detachment.slots.find((s) => s.isPrime && !s.unitId);
+    if (!emptyPrimeSlot) continue;
+
+    // Find a filled non-Prime slot with the same role
+    const filledNonPrimeSlot = detachment.slots.find(
+      (s) => !s.isPrime && s.unitId && s.definition.role === emptyPrimeSlot.definition.role
+    );
+    if (!filledNonPrimeSlot) continue;
+
+    // Move the unit from non-Prime to Prime slot
+    emptyPrimeSlot.unitId = filledNonPrimeSlot.unitId;
+    filledNonPrimeSlot.unitId = undefined;
+  }
+}
+
+/**
+ * Apply Logistical Benefit to detachments to allocate more units.
+ * Logistical Benefit: When a unit is in a Prime slot, add one additional slot
+ * of any role (except High Command, Command, Warlord, Lord of War) to the detachment.
+ * Can only be used once per detachment.
+ */
+function applyLogisticalBenefit(context: AllocationContext): void {
+  if (context.unitsToAllocate.length === 0) return;
+
+  for (const detachment of context.allocatedDetachments) {
+    // Check if this detachment already used Logistical Benefit
+    const alreadyUsedLogisticalBenefit = detachment.slots.some(
+      (s) => s.usedPrimeRule === 'logistical-benefit'
+    );
+    if (alreadyUsedLogisticalBenefit) continue;
+
+    // Find a Prime slot that has a unit allocated and hasn't used a prime rule
+    const primeSlotWithUnit = detachment.slots.find(
+      (s) => s.isPrime && s.unitId && !s.usedPrimeRule
+    );
+    if (!primeSlotWithUnit) continue;
+
+    // Find an unallocated unit that could benefit from a new slot
+    for (let i = 0; i < context.unitsToAllocate.length; i++) {
+      const unit = context.unitsToAllocate[i];
+
+      // Check if this role is allowed for Logistical Benefit
+      if (LOGISTICAL_BENEFIT_EXCLUDED_ROLES.includes(unit.role)) continue;
+
+      // Check faction compatibility
+      if (unit.faction !== detachment.faction) continue;
+
+      // Check sub-faction compatibility
+      if (detachment.subFaction && unit.subFaction && unit.subFaction !== detachment.subFaction) {
+        continue;
+      }
+
+      // Create a new slot via Logistical Benefit
+      const newSlotDef = createSlotDefinition(unit.role, 1, 0);
+      const newSlot: AllocatedSlot = {
+        definition: newSlotDef,
+        slotIndex: 0,
+        unitId: unit.id,
+        isPrime: false,
+        usedPrimeRule: undefined,
+      };
+
+      // Mark the prime slot as using Logistical Benefit
+      primeSlotWithUnit.usedPrimeRule = 'logistical-benefit';
+
+      // Add the new slot to the detachment
+      detachment.slots.push(newSlot);
+
+      // Remove the unit from unallocated list
+      context.unitsToAllocate.splice(i, 1);
+
+      // Only one Logistical Benefit per detachment
+      break;
+    }
+  }
+}
+
 export function allocateArmy(army: ArmyState): AllocationResult {
   if (army.units.length === 0) {
     return createAllocationResult();
@@ -261,6 +382,12 @@ export function allocateArmy(army: ArmyState): AllocationResult {
       }
     }
   }
+
+  // Step 5: Apply Logistical Benefit to allocate remaining units where possible
+  // First, move units to Prime slots if it would enable Logistical Benefit
+  enableLogisticalBenefitByMovingUnits(context);
+  // Then apply Logistical Benefit
+  applyLogisticalBenefit(context);
 
   // Generate suggestions for unallocated units
   const suggestions = generateSuggestions(context);

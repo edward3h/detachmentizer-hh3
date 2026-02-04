@@ -260,6 +260,12 @@ label {
   color: var(--color-warning);
 }
 
+.slot-lb {
+  color: var(--color-success);
+  font-size: var(--font-size-sm);
+  margin-left: var(--space-xs);
+}
+
 .slot-unit {
   font-weight: 500;
 }
