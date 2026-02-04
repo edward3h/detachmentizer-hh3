@@ -51,8 +51,8 @@ export function renderUnitList(army: ArmyState): string {
             <span class="unit-name">${unit.name}</span>
             ${factionDisplay}
           </div>
-          <button class="btn-small duplicate-unit" data-unit-id="${unit.id}">Duplicate</button>
-          <button class="btn-danger btn-small remove-unit" data-unit-id="${unit.id}">Remove</button>
+          <button class="btn-small duplicate-unit" data-unit-id="${unit.id}" title="Duplicate"><i class="la la-copy"></i></button>
+          <button class="btn-danger btn-small remove-unit" data-unit-id="${unit.id}" title="Remove"><i class="la la-trash"></i></button>
         </li>
       `;
     })
@@ -71,7 +71,8 @@ export function renderUnitList(army: ArmyState): string {
 export function setupUnitListHandlers(): void {
   document.querySelectorAll('.remove-unit').forEach((btn) => {
     btn.addEventListener('click', (e) => {
-      const unitId = (e.target as HTMLElement).dataset.unitId;
+      const button = (e.target as HTMLElement).closest('.remove-unit') as HTMLElement;
+      const unitId = button?.dataset.unitId;
       if (unitId) {
         appState.removeUnit(unitId);
       }
@@ -80,7 +81,8 @@ export function setupUnitListHandlers(): void {
 
   document.querySelectorAll('.duplicate-unit').forEach((btn) => {
     btn.addEventListener('click', (e) => {
-      const unitId = (e.target as HTMLElement).dataset.unitId;
+      const button = (e.target as HTMLElement).closest('.duplicate-unit') as HTMLElement;
+      const unitId = button?.dataset.unitId;
       if (unitId) {
         const army = appState.getArmy();
         const unit = army?.units.find((u) => u.id === unitId);
