@@ -5,6 +5,7 @@ import { KNOWN_UNITS } from '../data';
 import { Typeahead, TypeaheadOption } from './typeahead';
 
 let typeahead: Typeahead | null = null;
+let focusRoleSelectOnSetup = false;
 
 export function renderAddUnit(army: ArmyState): string {
   const roleOptions = BATTLEFIELD_ROLES.map(
@@ -52,6 +53,12 @@ export function setupAddUnitHandlers(army: ArmyState): void {
   const roleSelect = document.getElementById('unit-role') as HTMLSelectElement;
   const nameInput = document.getElementById('unit-name') as HTMLInputElement;
   const factionSelect = document.getElementById('unit-faction') as HTMLSelectElement;
+
+  // Focus role select if flag was set (after adding a unit)
+  if (focusRoleSelectOnSetup) {
+    focusRoleSelectOnSetup = false;
+    roleSelect.focus();
+  }
 
   function getTypeaheadOptions(): TypeaheadOption[] {
     const role = roleSelect.value as BattlefieldRole;
@@ -116,13 +123,10 @@ export function setupAddUnitHandlers(army: ArmyState): void {
 
     if (!role || !name) return;
 
-    appState.addUnit(name, role, faction);
+    // Set flag to focus role select after re-render
+    focusRoleSelectOnSetup = true;
 
-    // Reset form
-    nameInput.value = '';
-    roleSelect.value = '';
-    factionSelect.value = army.primaryFaction;
-    typeahead?.setOptions(getTypeaheadOptions());
+    appState.addUnit(name, role, faction);
   });
 }
 
