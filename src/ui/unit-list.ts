@@ -51,6 +51,7 @@ export function renderUnitList(army: ArmyState): string {
             <span class="unit-name">${unit.name}</span>
             ${factionDisplay}
           </div>
+          <button class="btn-small duplicate-unit" data-unit-id="${unit.id}">Duplicate</button>
           <button class="btn-danger btn-small remove-unit" data-unit-id="${unit.id}">Remove</button>
         </li>
       `;
@@ -73,6 +74,19 @@ export function setupUnitListHandlers(): void {
       const unitId = (e.target as HTMLElement).dataset.unitId;
       if (unitId) {
         appState.removeUnit(unitId);
+      }
+    });
+  });
+
+  document.querySelectorAll('.duplicate-unit').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      const unitId = (e.target as HTMLElement).dataset.unitId;
+      if (unitId) {
+        const army = appState.getArmy();
+        const unit = army?.units.find((u) => u.id === unitId);
+        if (unit) {
+          appState.addUnit(unit.name, unit.role, unit.faction, unit.subFaction);
+        }
       }
     });
   });
