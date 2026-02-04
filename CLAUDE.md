@@ -52,4 +52,4 @@ Single-page application with:
 - **Sub-faction**: Specific legion or variant within a faction
 - **Detachment**: A structure containing slots that units fill
 - **Battlefield Role**: Unit category (HQ, Troops, Elites, etc.)
-- **Prime**: A rule allowing flexible slot usage (prefer not to use when allocating)
+- **Prime**: A rule allowing flexible slot usage (allocated first to enable Logistical Benefit)

@@ -58,13 +58,13 @@ export function findAvailableSlot(
   slots: AllocatedSlot[],
   detachmentFaction: FactionId,
   detachmentSubFaction?: SubFactionId,
-  preferNonPrime: boolean = true
+  preferPrime: boolean = true
 ): AllocatedSlot | null {
-  // First pass: find non-prime slots
-  if (preferNonPrime) {
+  // First pass: find Prime slots first
+  if (preferPrime) {
     for (const slot of slots) {
       if (slot.unitId) continue;
-      if (slot.isPrime) continue;
+      if (!slot.isPrime) continue;
 
       const result = canUnitFillSlot(
         unit,
