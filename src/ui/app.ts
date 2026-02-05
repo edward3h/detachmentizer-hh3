@@ -1,5 +1,6 @@
 import { appState } from '../state';
 import { allocateArmy } from '../allocation';
+import { exportArmyToYaml, importArmyFromYaml, downloadYamlFile, openAndReadYamlFile } from '../io';
 import { renderHeader } from './header';
 import { renderFooter } from './footer';
 import { renderCreateArmy, setupCreateArmyHandlers } from './create-army';
@@ -79,6 +80,53 @@ export class App {
         }
       });
     }
+
+    const saveBtn = document.getElementById('save-army');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        this.handleSaveArmy();
+      });
+    }
+
+    const loadBtn = document.getElementById('load-army');
+    if (loadBtn) {
+      loadBtn.addEventListener('click', () => {
+        this.handleLoadArmy();
+      });
+    }
+  }
+
+  private handleSaveArmy(): void {
+    const army = appState.getArmy();
+    const customUnitNames = appState.getCustomUnitNames();
+    const yamlContent = exportArmyToYaml(army, customUnitNames);
+
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const filename = `army-${timestamp}.yaml`;
+
+    downloadYamlFile(yamlContent, filename);
+  }
+
+  private async handleLoadArmy(): Promise<void> {
+    const yamlContent = await openAndReadYamlFile();
+    if (!yamlContent) {
+      return;
+    }
+
+    const result = importArmyFromYaml(yamlContent);
+    if (!result.success) {
+      alert(`Failed to load army: ${result.error}`);
+      return;
+    }
+
+    const existingArmy = appState.getArmy();
+    if (existingArmy && existingArmy.units.length > 0) {
+      if (!confirm('Loading will replace your current army. Do you want to continue?')) {
+        return;
+      }
+    }
+
+    appState.loadFromImport(result.army, result.customUnitNames);
   }
 
   destroy(): void {
