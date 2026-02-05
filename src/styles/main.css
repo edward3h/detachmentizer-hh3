@@ -185,18 +185,22 @@ label {
 /* Unit list */
 .unit-list {
   list-style: none;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
 }
 
 .unit-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-sm);
-  border-bottom: 1px solid var(--color-border-light);
+  display: contents;
 }
 
-.unit-item:last-child {
-  border-bottom: none;
+.unit-item > :first-child {
+  padding-left: var(--space-sm);
+}
+
+.unit-item > :last-child {
+  padding-right: var(--space-sm);
 }
 
 .unit-role {
@@ -204,6 +208,13 @@ label {
   color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.unit-info {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .unit-name {
