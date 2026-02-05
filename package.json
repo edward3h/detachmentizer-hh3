@@ -21,5 +21,8 @@
     "typescript-eslint": "^8.22.0",
     "vite": "^7.0.0",
     "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "yaml": "^2.8.2"
   }
 }

@@ -5,7 +5,10 @@ export function renderHeader(army: ArmyState | null): string {
   if (!army) {
     return `
       <header class="app-header">
-        <h1>Detachmentizer HH3</h1>
+        <div class="card-header">
+          <h1>Detachmentizer HH3</h1>
+          <button class="btn-secondary btn-small" id="load-army">Load</button>
+        </div>
         <p class="text-muted">Army detachment allocation for Warhammer: The Horus Heresy 3rd Edition</p>
       </header>
     `;
@@ -22,7 +25,11 @@ export function renderHeader(army: ArmyState | null): string {
     <header class="app-header">
       <div class="card-header">
         <h1>Detachmentizer HH3</h1>
-        <button class="btn-danger btn-small" id="reset-army">Reset Army</button>
+        <div class="header-actions">
+          <button class="btn-secondary btn-small" id="save-army">Save</button>
+          <button class="btn-secondary btn-small" id="load-army">Load</button>
+          <button class="btn-danger btn-small" id="reset-army">Reset Army</button>
+        </div>
       </div>
       <div>
         <span class="allegiance-badge ${army.allegiance}">${getAllegianceLabel(army.allegiance)}</span>

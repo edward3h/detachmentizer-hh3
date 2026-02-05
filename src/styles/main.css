@@ -137,6 +137,12 @@ label {
   margin-bottom: var(--space-sm);
 }
 
+.header-actions {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
 /* Header */
 .app-header {
   background-color: var(--color-bg-secondary);

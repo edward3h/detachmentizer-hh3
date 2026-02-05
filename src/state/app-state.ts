@@ -100,6 +100,12 @@ class AppStateManager {
     clearState();
     this.notify();
   }
+
+  loadFromImport(army: ArmyState | null, customUnitNames: string[]): void {
+    this.state.army = army;
+    this.state.customUnitNames = customUnitNames;
+    this.notify();
+  }
 }
 
 export const appState = new AppStateManager();
