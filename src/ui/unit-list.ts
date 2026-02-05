@@ -46,8 +46,8 @@ export function renderUnitList(army: ArmyState): string {
 
       return `
         <li class="unit-item" data-unit-id="${unit.id}">
-          <div>
-            <span class="unit-role">${getBattlefieldRoleName(unit.role)}</span>
+          <span class="unit-role">${getBattlefieldRoleName(unit.role)}</span>
+          <div class="unit-info">
             <span class="unit-name">${unit.name}</span>
             ${factionDisplay}
           </div>
