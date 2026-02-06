@@ -1,0 +1,49 @@
+name: Allocation Bug Report
+description: Report a problem with how units are allocated to detachments
+title: "[Allocation Bug]: "
+labels: ["bug", "allocation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this issue!
+
+        ## How to save your army file
+        1. In the app, click the **Save** button in the header
+        2. A file called `army-YYYY-MM-DD.yaml` will download to your computer
+        3. Attach this file below by dragging it into the upload area
+
+  - type: textarea
+    id: army-file
+    attributes:
+      label: Army File
+      description: Drag and drop your saved .yaml file here, or paste its contents
+      placeholder: Drag your army-YYYY-MM-DD.yaml file here
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen
+      description: Describe how you expect the units to be allocated
+      placeholder: "e.g. The Tactical Squad should be placed in the Troops slot of the first detachment"
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened
+      description: Describe what the app did instead
+      placeholder: "e.g. The Tactical Squad was placed in the Elites slot instead"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Any other information that might help (screenshots, browser, etc.)
+    validations:
+      required: false
