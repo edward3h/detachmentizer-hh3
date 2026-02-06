@@ -6,9 +6,10 @@ import type {
   BattlefieldRole,
   DetachmentDefinition,
   FactionId,
+  SubFactionId,
   Unit,
 } from '../types';
-import { createAllocatedDetachment, createAllocationResult, createSlotDefinition } from '../types';
+import { createAllocatedDetachment, createAllocationResult, createSlotDefinition, FACTIONS } from '../types';
 import {
   CORE_DETACHMENTS,
   getApexDetachmentsForFaction,
@@ -19,8 +20,17 @@ import { findKnownUnit } from '../data';
 import { findAvailableSlot, countFilledSlots } from './slot-matcher';
 
 interface AlliedFactionContext {
+  faction: FactionId;
+  subFaction: SubFactionId | undefined;
   auxiliaryUnlocks: number;
   usedAuxiliaryDetachmentIds: Set<string>;
+}
+
+// Composite key for faction + sub-faction (e.g., "legiones-astartes:salamanders")
+type AlliedContextKey = string;
+
+function makeAlliedContextKey(faction: FactionId, subFaction: SubFactionId | undefined): AlliedContextKey {
+  return subFaction ? `${faction}:${subFaction}` : faction;
 }
 
 interface AllocationContext {
@@ -31,7 +41,7 @@ interface AllocationContext {
   auxiliaryUnlocks: number;
   usedApexDetachmentIds: Set<string>;
   usedAuxiliaryDetachmentIds: Set<string>;
-  alliedContexts: Map<FactionId, AlliedFactionContext>;
+  alliedContexts: Map<AlliedContextKey, AlliedFactionContext>;
 }
 
 function getPrimaryDetachment(): DetachmentDefinition {
@@ -42,17 +52,28 @@ function getAlliedDetachment(): DetachmentDefinition {
   return CORE_DETACHMENTS.find((d) => d.id === 'allied')!;
 }
 
-function groupUnitsByFaction(units: Unit[]): Map<FactionId, Unit[]> {
-  const result = new Map<FactionId, Unit[]>();
+interface FactionSubFactionGroup {
+  faction: FactionId;
+  subFaction: SubFactionId | undefined;
+  units: Unit[];
+}
+
+function groupUnitsByFactionAndSubFaction(units: Unit[]): FactionSubFactionGroup[] {
+  const groups = new Map<AlliedContextKey, FactionSubFactionGroup>();
   for (const unit of units) {
-    const existing = result.get(unit.faction);
+    const key = makeAlliedContextKey(unit.faction, unit.subFaction);
+    const existing = groups.get(key);
     if (existing) {
-      existing.push(unit);
+      existing.units.push(unit);
     } else {
-      result.set(unit.faction, [unit]);
+      groups.set(key, {
+        faction: unit.faction,
+        subFaction: unit.subFaction,
+        units: [unit],
+      });
     }
   }
-  return result;
+  return Array.from(groups.values());
 }
 
 function countUnlocks(
@@ -300,40 +321,64 @@ function applyLogisticalBenefit(context: AllocationContext): void {
 }
 
 /**
- * Allocate units with factions different from the primary faction to Allied Detachments.
+ * Check if a unit should be treated as allied (different faction or sub-faction from primary).
+ */
+function isAlliedUnit(unit: Unit, army: ArmyState): boolean {
+  // Different faction is always allied
+  if (unit.faction !== army.primaryFaction) {
+    return true;
+  }
+
+  // Same faction but different sub-faction is allied (if faction supports sub-factions)
+  const faction = FACTIONS.find((f) => f.id === unit.faction);
+  if (faction?.subFactions && faction.subFactions.length > 0) {
+    // If unit has a sub-faction and it differs from primary, it's allied
+    if (unit.subFaction && unit.subFaction !== army.primarySubFaction) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Allocate units with factions or sub-factions different from the primary to Allied Detachments.
  * Allied Detachments have no High Command slot, so they cannot unlock Apex detachments.
  * Command units in Allied Detachments can unlock Auxiliary detachments for that allied faction.
  */
 function allocateAlliedDetachments(context: AllocationContext): void {
-  // Find unallocated units that have a different faction from the primary
-  const alliedUnits = context.unitsToAllocate.filter(
-    (u) => u.faction !== context.army.primaryFaction
-  );
+  // Find unallocated units that should be treated as allied
+  const alliedUnits = context.unitsToAllocate.filter((u) => isAlliedUnit(u, context.army));
 
   if (alliedUnits.length === 0) return;
 
-  // Group by faction
-  const unitsByFaction = groupUnitsByFaction(alliedUnits);
+  // Group by faction AND sub-faction
+  const unitGroups = groupUnitsByFactionAndSubFaction(alliedUnits);
 
   const alliedDetDef = getAlliedDetachment();
 
-  for (const [alliedFaction, units] of unitsByFaction) {
-    // Initialise allied context for this faction
-    context.alliedContexts.set(alliedFaction, {
+  for (const group of unitGroups) {
+    const { faction: alliedFaction, subFaction: alliedSubFaction, units } = group;
+    const contextKey = makeAlliedContextKey(alliedFaction, alliedSubFaction);
+
+    // Initialise allied context for this faction+sub-faction
+    context.alliedContexts.set(contextKey, {
+      faction: alliedFaction,
+      subFaction: alliedSubFaction,
       auxiliaryUnlocks: 0,
       usedAuxiliaryDetachmentIds: new Set(),
     });
-    const alliedCtx = context.alliedContexts.get(alliedFaction)!;
+    const alliedCtx = context.alliedContexts.get(contextKey)!;
 
-    // Create Allied Detachment(s) for this faction
+    // Create Allied Detachment(s) for this faction+sub-faction
     // Keep creating detachments as long as we can allocate units
-    let unitsForFaction = units;
-    while (unitsForFaction.length > 0) {
-      const alliedDet = createAllocatedDetachment(alliedDetDef, alliedFaction, undefined);
+    let unitsForGroup = units;
+    while (unitsForGroup.length > 0) {
+      const alliedDet = createAllocatedDetachment(alliedDetDef, alliedFaction, alliedSubFaction);
 
-      const beforeCount = unitsForFaction.length;
-      unitsForFaction = allocateUnitsToDetachment(alliedDet, unitsForFaction);
-      const afterCount = unitsForFaction.length;
+      const beforeCount = unitsForGroup.length;
+      unitsForGroup = allocateUnitsToDetachment(alliedDet, unitsForGroup);
+      const afterCount = unitsForGroup.length;
 
       // Only add the detachment if we actually allocated units
       if (beforeCount !== afterCount) {
@@ -358,14 +403,14 @@ function allocateAlliedDetachments(context: AllocationContext): void {
       }
     }
 
-    // Now allocate remaining units of this faction to Auxiliary detachments
+    // Now allocate remaining units of this faction+sub-faction to Auxiliary detachments
     const auxDetachments = getAuxiliaryDetachmentsForFaction(alliedFaction);
-    const remainingUnitsOfFaction = context.unitsToAllocate.filter(
-      (u) => u.faction === alliedFaction
-    );
+    const matchesGroup = (u: Unit) =>
+      u.faction === alliedFaction && u.subFaction === alliedSubFaction;
+    const remainingUnitsOfGroup = context.unitsToAllocate.filter(matchesGroup);
 
-    for (let i = 0; i < alliedCtx.auxiliaryUnlocks && remainingUnitsOfFaction.length > 0; i++) {
-      const unitsToCheck = context.unitsToAllocate.filter((u) => u.faction === alliedFaction);
+    for (let i = 0; i < alliedCtx.auxiliaryUnlocks && remainingUnitsOfGroup.length > 0; i++) {
+      const unitsToCheck = context.unitsToAllocate.filter(matchesGroup);
       if (unitsToCheck.length === 0) break;
 
       const bestAux = selectBestDetachmentForFaction(
@@ -378,7 +423,7 @@ function allocateAlliedDetachments(context: AllocationContext): void {
 
       if (bestAux) {
         alliedCtx.usedAuxiliaryDetachmentIds.add(bestAux.id);
-        const auxDet = createAllocatedDetachment(bestAux, alliedFaction, undefined);
+        const auxDet = createAllocatedDetachment(bestAux, alliedFaction, alliedSubFaction);
 
         const beforeCount = countFilledSlots(auxDet.slots);
         context.unitsToAllocate = allocateUnitsToDetachment(auxDet, context.unitsToAllocate);
