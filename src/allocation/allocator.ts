@@ -5,6 +5,7 @@ import type {
   ArmyState,
   BattlefieldRole,
   DetachmentDefinition,
+  FactionId,
   Unit,
 } from '../types';
 import { createAllocatedDetachment, createAllocationResult, createSlotDefinition } from '../types';
@@ -15,7 +16,12 @@ import {
   getDetachmentById,
 } from '../data';
 import { findKnownUnit } from '../data';
-import { findAvailableSlot } from './slot-matcher';
+import { findAvailableSlot, countFilledSlots } from './slot-matcher';
+
+interface AlliedFactionContext {
+  auxiliaryUnlocks: number;
+  usedAuxiliaryDetachmentIds: Set<string>;
+}
 
 interface AllocationContext {
   army: ArmyState;
@@ -25,10 +31,28 @@ interface AllocationContext {
   auxiliaryUnlocks: number;
   usedApexDetachmentIds: Set<string>;
   usedAuxiliaryDetachmentIds: Set<string>;
+  alliedContexts: Map<FactionId, AlliedFactionContext>;
 }
 
 function getPrimaryDetachment(): DetachmentDefinition {
   return CORE_DETACHMENTS.find((d) => d.id === 'primary-crusade')!;
+}
+
+function getAlliedDetachment(): DetachmentDefinition {
+  return CORE_DETACHMENTS.find((d) => d.id === 'allied')!;
+}
+
+function groupUnitsByFaction(units: Unit[]): Map<FactionId, Unit[]> {
+  const result = new Map<FactionId, Unit[]>();
+  for (const unit of units) {
+    const existing = result.get(unit.faction);
+    if (existing) {
+      existing.push(unit);
+    } else {
+      result.set(unit.faction, [unit]);
+    }
+  }
+  return result;
 }
 
 function countUnlocks(
@@ -103,7 +127,7 @@ function selectBestDetachment(
 
   // Score each detachment by how many units can fill its slots
   let bestDetachment: DetachmentDefinition | null = null;
-  let bestScore = -1;
+  let bestScore = 0; // Start at 0 to avoid selecting detachments with no matches
 
   for (const detachment of available) {
     const faction = detachment.faction ?? army.primaryFaction;
@@ -123,6 +147,51 @@ function selectBestDetachment(
 
     for (const unit of units) {
       const slot = findAvailableSlot(unit, allocatedDet.slots, faction, subFaction, true);
+      if (slot && !slot.unitId) {
+        slot.unitId = unit.id;
+        score++;
+      }
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestDetachment = detachment;
+    }
+  }
+
+  return bestDetachment;
+}
+
+/**
+ * Select the best detachment for an allied faction.
+ * Similar to selectBestDetachment but uses the target faction instead of army.primaryFaction.
+ */
+function selectBestDetachmentForFaction(
+  detachments: DetachmentDefinition[],
+  units: Unit[],
+  targetFaction: FactionId,
+  army: ArmyState,
+  usedIds: Set<string>
+): DetachmentDefinition | null {
+  // Filter out already used detachments and ones we can't use
+  const available = detachments.filter(
+    (d) => !usedIds.has(d.id) && canUseDetachment(d, army, units)
+  );
+
+  if (available.length === 0) return null;
+
+  // Score each detachment by how many units can fill its slots
+  let bestDetachment: DetachmentDefinition | null = null;
+  let bestScore = 0; // Start at 0 to avoid selecting detachments with no matches
+
+  for (const detachment of available) {
+    const faction = detachment.faction ?? targetFaction;
+
+    const allocatedDet = createAllocatedDetachment(detachment, faction, undefined);
+    let score = 0;
+
+    for (const unit of units) {
+      const slot = findAvailableSlot(unit, allocatedDet.slots, faction, undefined, true);
       if (slot && !slot.unitId) {
         slot.unitId = unit.id;
         score++;
@@ -230,6 +299,100 @@ function applyLogisticalBenefit(context: AllocationContext): void {
   }
 }
 
+/**
+ * Allocate units with factions different from the primary faction to Allied Detachments.
+ * Allied Detachments have no High Command slot, so they cannot unlock Apex detachments.
+ * Command units in Allied Detachments can unlock Auxiliary detachments for that allied faction.
+ */
+function allocateAlliedDetachments(context: AllocationContext): void {
+  // Find unallocated units that have a different faction from the primary
+  const alliedUnits = context.unitsToAllocate.filter(
+    (u) => u.faction !== context.army.primaryFaction
+  );
+
+  if (alliedUnits.length === 0) return;
+
+  // Group by faction
+  const unitsByFaction = groupUnitsByFaction(alliedUnits);
+
+  const alliedDetDef = getAlliedDetachment();
+
+  for (const [alliedFaction, units] of unitsByFaction) {
+    // Initialise allied context for this faction
+    context.alliedContexts.set(alliedFaction, {
+      auxiliaryUnlocks: 0,
+      usedAuxiliaryDetachmentIds: new Set(),
+    });
+    const alliedCtx = context.alliedContexts.get(alliedFaction)!;
+
+    // Create Allied Detachment(s) for this faction
+    // Keep creating detachments as long as we can allocate units
+    let unitsForFaction = units;
+    while (unitsForFaction.length > 0) {
+      const alliedDet = createAllocatedDetachment(alliedDetDef, alliedFaction, undefined);
+
+      const beforeCount = unitsForFaction.length;
+      unitsForFaction = allocateUnitsToDetachment(alliedDet, unitsForFaction);
+      const afterCount = unitsForFaction.length;
+
+      // Only add the detachment if we actually allocated units
+      if (beforeCount !== afterCount) {
+        context.allocatedDetachments.push(alliedDet);
+
+        // Count Command units allocated to this Allied Detachment for Auxiliary unlocks
+        const allocatedCommand = context.army.units.filter((u) =>
+          alliedDet.slots.some((s) => s.unitId === u.id && s.definition.role === 'command')
+        );
+        alliedCtx.auxiliaryUnlocks += countUnlocks(allocatedCommand, 'command');
+
+        // Remove the allocated units from the main unitsToAllocate
+        const allocatedUnitIds = new Set(
+          alliedDet.slots.filter((s) => s.unitId).map((s) => s.unitId)
+        );
+        context.unitsToAllocate = context.unitsToAllocate.filter(
+          (u) => !allocatedUnitIds.has(u.id)
+        );
+      } else {
+        // No units could be allocated, break to avoid infinite loop
+        break;
+      }
+    }
+
+    // Now allocate remaining units of this faction to Auxiliary detachments
+    const auxDetachments = getAuxiliaryDetachmentsForFaction(alliedFaction);
+    const remainingUnitsOfFaction = context.unitsToAllocate.filter(
+      (u) => u.faction === alliedFaction
+    );
+
+    for (let i = 0; i < alliedCtx.auxiliaryUnlocks && remainingUnitsOfFaction.length > 0; i++) {
+      const unitsToCheck = context.unitsToAllocate.filter((u) => u.faction === alliedFaction);
+      if (unitsToCheck.length === 0) break;
+
+      const bestAux = selectBestDetachmentForFaction(
+        auxDetachments,
+        unitsToCheck,
+        alliedFaction,
+        context.army,
+        alliedCtx.usedAuxiliaryDetachmentIds
+      );
+
+      if (bestAux) {
+        alliedCtx.usedAuxiliaryDetachmentIds.add(bestAux.id);
+        const auxDet = createAllocatedDetachment(bestAux, alliedFaction, undefined);
+
+        const beforeCount = countFilledSlots(auxDet.slots);
+        context.unitsToAllocate = allocateUnitsToDetachment(auxDet, context.unitsToAllocate);
+        const afterCount = countFilledSlots(auxDet.slots);
+
+        // Only add the detachment if we actually allocated units
+        if (afterCount > beforeCount) {
+          context.allocatedDetachments.push(auxDet);
+        }
+      }
+    }
+  }
+}
+
 export function allocateArmy(army: ArmyState): AllocationResult {
   if (army.units.length === 0) {
     return createAllocationResult();
@@ -243,6 +406,7 @@ export function allocateArmy(army: ArmyState): AllocationResult {
     auxiliaryUnlocks: 0,
     usedApexDetachmentIds: new Set(),
     usedAuxiliaryDetachmentIds: new Set(),
+    alliedContexts: new Map(),
   };
 
   // Step 1: Create and fill Primary Detachment
@@ -311,7 +475,10 @@ export function allocateArmy(army: ArmyState): AllocationResult {
     }
   }
 
-  // Step 4: Check for units that unlock specific detachments
+  // Step 4: Allocate to Allied Detachments for units with different factions
+  allocateAlliedDetachments(context);
+
+  // Step 5: Check for units that unlock specific detachments
   for (const unit of [...context.unitsToAllocate]) {
     const known = findKnownUnit(unit.name, unit.faction);
     if (known?.unlocksDetachment) {
@@ -333,7 +500,7 @@ export function allocateArmy(army: ArmyState): AllocationResult {
     }
   }
 
-  // Step 5: Apply Logistical Benefit to allocate remaining units where possible
+  // Step 6: Apply Logistical Benefit to allocate remaining units where possible
   // Units are already in Prime slots first, so we can directly apply Logistical Benefit
   applyLogisticalBenefit(context);
 
