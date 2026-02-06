@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Detachmentizer HH3 is an unofficial web application to help players of Warhammer: The Horus Heresy 3rd Edition select and organise units into valid detachments for army building.
 
-**Current Status**: Specification/design phase - documentation exists but no implementation code yet.
+**Current Status**: Active development - core allocation algorithm implemented.
 
 ## Technology Stack (Planned)
 
@@ -39,11 +39,11 @@ Single-page application with:
 
 ## Key Documentation Files
 
-- `application.md` - Functional specification (UI flows, state management, display rules)
-- `army-selection.md` - Game rules (allegiances, factions, battlefield roles, detachment types)
-- `legiones-astartes-detachments.md` - Legiones Astartes faction detachment rules
-- `imperialis-militia-detachments.md` - Imperialis Militia faction detachment rules
-- `implementation-notes.md` - Technical decisions
+- `docs/application.md` - Functional specification (UI flows, state management, display rules)
+- `docs/army-selection.md` - Game rules (allegiances, factions, battlefield roles, detachment types)
+- `docs/legiones-astartes-detachments.md` - Legiones Astartes faction detachment rules
+- `docs/imperialis-militia-detachments.md` - Imperialis Militia faction detachment rules
+- `docs/implementation-notes.md` - Technical decisions
 
 ## Domain Concepts
 
