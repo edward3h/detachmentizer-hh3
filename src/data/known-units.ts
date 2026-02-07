@@ -409,6 +409,20 @@ export const KNOWN_UNITS: KnownUnit[] = [
     faction: 'daemons-of-the-ruinstorm',
     fixedAllegiance: 'traitor',
   },
+
+  // Mechanicum - Command units
+  {
+    name: 'Magos',
+    role: 'command',
+    faction: 'mechanicum',
+    officerOfTheLine: 2,
+  },
+  {
+    name: 'Magos on Abeyant',
+    role: 'command',
+    faction: 'mechanicum',
+    officerOfTheLine: 2,
+  },
 ];
 
 export function findKnownUnit(name: string, faction?: string): KnownUnit | undefined {

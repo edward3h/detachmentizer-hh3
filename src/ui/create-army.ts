@@ -34,9 +34,9 @@ export function renderCreateArmy(): string {
           </select>
         </div>
         <div class="form-group" id="sub-faction-group" style="display: none;">
-          <label for="sub-faction">Sub-faction (Legion)</label>
+          <label for="sub-faction" id="sub-faction-label">Sub-faction</label>
           <select id="sub-faction" name="sub-faction">
-            <option value="">-- Select Legion --</option>
+            <option value="">-- Select --</option>
           </select>
         </div>
         <button type="submit" class="btn-primary">Create Army</button>
@@ -51,6 +51,7 @@ export function setupCreateArmyHandlers(): void {
   const factionSelect = document.getElementById('faction') as HTMLSelectElement;
   const subFactionGroup = document.getElementById('sub-faction-group') as HTMLDivElement;
   const subFactionSelect = document.getElementById('sub-faction') as HTMLSelectElement;
+  const subFactionLabel = document.getElementById('sub-faction-label') as HTMLLabelElement;
 
   function updateFactionOptions(): void {
     const allegiance = allegianceSelect.value as Allegiance;
@@ -79,13 +80,15 @@ export function setupCreateArmyHandlers(): void {
 
     if (faction?.subFactions && faction.subFactions.length > 0) {
       subFactionGroup.style.display = 'block';
+      const label = faction.subFactionLabel ?? 'Sub-faction';
+      subFactionLabel.textContent = label;
       const options = faction.subFactions
         .map((sfId) => {
           const sf = SUB_FACTIONS.find((s) => s.id === sfId);
           return `<option value="${sfId}">${sf?.name ?? sfId}</option>`;
         })
         .join('');
-      subFactionSelect.innerHTML = `<option value="">-- Select Legion --</option>${options}`;
+      subFactionSelect.innerHTML = `<option value="">-- Select ${label} --</option>${options}`;
     } else {
       subFactionGroup.style.display = 'none';
       subFactionSelect.innerHTML = '<option value="">-- None --</option>';

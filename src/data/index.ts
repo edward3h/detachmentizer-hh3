@@ -3,6 +3,7 @@ export * from './factions';
 export * from './core-detachments';
 export * from './legiones-astartes';
 export * from './imperialis-militia';
+export * from './mechanicum';
 export * from './known-units';
 
 import type { DetachmentDefinition, FactionId } from '../types';
@@ -13,12 +14,14 @@ import {
 } from './core-detachments';
 import { getAllLegionesAstartesDetachments } from './legiones-astartes';
 import { getAllImperialisMilitiaDetachments } from './imperialis-militia';
+import { getAllMechanicumDetachments } from './mechanicum';
 
 export function getAllDetachments(): DetachmentDefinition[] {
   return [
     ...getAllCoreDetachments(),
     ...getAllLegionesAstartesDetachments(),
     ...getAllImperialisMilitiaDetachments(),
+    ...getAllMechanicumDetachments(),
   ];
 }
 

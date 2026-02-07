@@ -9,7 +9,12 @@ import type {
   SubFactionId,
   Unit,
 } from '../types';
-import { createAllocatedDetachment, createAllocationResult, createSlotDefinition, FACTIONS } from '../types';
+import {
+  createAllocatedDetachment,
+  createAllocationResult,
+  createSlotDefinition,
+  FACTIONS,
+} from '../types';
 import {
   CORE_DETACHMENTS,
   getApexDetachmentsForFaction,
@@ -29,7 +34,10 @@ interface AlliedFactionContext {
 // Composite key for faction + sub-faction (e.g., "legiones-astartes:salamanders")
 type AlliedContextKey = string;
 
-function makeAlliedContextKey(faction: FactionId, subFaction: SubFactionId | undefined): AlliedContextKey {
+function makeAlliedContextKey(
+  faction: FactionId,
+  subFaction: SubFactionId | undefined
+): AlliedContextKey {
   return subFaction ? `${faction}:${subFaction}` : faction;
 }
 
