@@ -35,7 +35,16 @@ export type LegionId =
   | 'blackshields'
   | 'shattered-legions';
 
-export type SubFactionId = LegionId;
+export type MechanicumArcanaId =
+  | 'archimandrite'
+  | 'cybernetica'
+  | 'lacrymaerta'
+  | 'myrmidax'
+  | 'reductor'
+  | 'malagra'
+  | 'macrotek';
+
+export type SubFactionId = LegionId | MechanicumArcanaId;
 
 export interface FactionDefinition {
   id: FactionId;
@@ -44,6 +53,7 @@ export interface FactionDefinition {
   canBeDetachmentFaction: boolean;
   canBePrimaryFaction: boolean;
   subFactions?: readonly SubFactionId[];
+  subFactionLabel?: string;
 }
 
 export interface SubFactionDefinition {
@@ -80,6 +90,7 @@ export const FACTIONS: readonly FactionDefinition[] = [
       'blackshields',
       'shattered-legions',
     ],
+    subFactionLabel: 'Legion',
   },
   {
     id: 'solar-auxilia',
@@ -92,6 +103,16 @@ export const FACTIONS: readonly FactionDefinition[] = [
     name: 'Mechanicum',
     canBeDetachmentFaction: true,
     canBePrimaryFaction: true,
+    subFactions: [
+      'archimandrite',
+      'cybernetica',
+      'lacrymaerta',
+      'myrmidax',
+      'reductor',
+      'malagra',
+      'macrotek',
+    ],
+    subFactionLabel: 'Arcana',
   },
   {
     id: 'imperialis-militia',
@@ -150,6 +171,7 @@ export const FACTIONS: readonly FactionDefinition[] = [
 ] as const;
 
 export const SUB_FACTIONS: readonly SubFactionDefinition[] = [
+  // Legiones Astartes
   { id: 'dark-angels', name: 'Dark Angels', parentFaction: 'legiones-astartes' },
   { id: 'emperors-children', name: "Emperor's Children", parentFaction: 'legiones-astartes' },
   { id: 'iron-warriors', name: 'Iron Warriors', parentFaction: 'legiones-astartes' },
@@ -170,6 +192,14 @@ export const SUB_FACTIONS: readonly SubFactionDefinition[] = [
   { id: 'alpha-legion', name: 'Alpha Legion', parentFaction: 'legiones-astartes' },
   { id: 'blackshields', name: 'Blackshields', parentFaction: 'legiones-astartes' },
   { id: 'shattered-legions', name: 'Shattered Legions', parentFaction: 'legiones-astartes' },
+  // Mechanicum
+  { id: 'archimandrite', name: 'Archimandrite', parentFaction: 'mechanicum' },
+  { id: 'cybernetica', name: 'Cybernetica', parentFaction: 'mechanicum' },
+  { id: 'lacrymaerta', name: 'Lacrymaerta', parentFaction: 'mechanicum' },
+  { id: 'myrmidax', name: 'Myrmidax', parentFaction: 'mechanicum' },
+  { id: 'reductor', name: 'Reductor', parentFaction: 'mechanicum' },
+  { id: 'malagra', name: 'Malagra', parentFaction: 'mechanicum' },
+  { id: 'macrotek', name: 'Macrotek', parentFaction: 'mechanicum' },
 ] as const;
 
 export function getFaction(id: FactionId): FactionDefinition | undefined {
